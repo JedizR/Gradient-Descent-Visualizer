@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gradient Descent Visualization Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.10.3/cdn.min.js" defer></script>
+    <style>
+        /* Base shadcn-style styles with light theme */
+        :root {
+            --background: 0 0% 100%;
+            --foreground: 240 10% 3.9%;
+            --card: 0 0% 100%;
+            --card-foreground: 240 10% 3.9%;
+            --popover: 0 0% 100%;
+            --popover-foreground: 240 10% 3.9%;
+            --primary: 240 5.9% 10%;
+            --primary-foreground: 0 0% 98%;
+            --secondary: 240 4.8% 95.9%;
+            --secondary-foreground: 240 5.9% 10%;
+            --muted: 240 4.8% 95.9%;
+            --muted-foreground: 240 3.8% 46.1%;
+            --accent: 240 4.8% 95.9%;
+            --accent-foreground: 240 5.9% 10%;
+            --destructive: 0 84.2% 60.2%;
+            --destructive-foreground: 0 0% 98%;
+            --border: 240 5.9% 90%;
+            --input: 240 5.9% 90%;
+            --ring: 240 5.9% 10%;
+            --radius: 0.5rem;
+        }
+        
+        .card {
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--border));
+            background-color: hsl(var(--card));
+            color: hsl(var(--card-foreground));
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            padding: 1.5rem;
+        }
+
+        .visualization-container {
+            min-height: 500px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            transition-property: color, background-color, border-color;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 150ms;
+        }
+
+        .btn-primary {
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+        }
+
+        .btn-primary:hover {
+            background-color: hsl(var(--primary) / 0.9);
+        }
+        
+        .btn-secondary {
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+        }
+        
+        .btn-secondary:hover {
+            background-color: hsl(var(--secondary) / 0.8);
+        }
+
+        .slider-container {
+            margin-bottom: 1rem;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: hsl(var(--secondary));
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: hsl(var(--primary));
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: hsl(var(--primary));
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Animation controls */
+        .animation-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .animation-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 9999px;
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+            cursor: pointer;
+        }
+
+        .animation-btn:hover {
+            background-color: hsl(var(--secondary) / 0.8);
+        }
+
+        .animation-slider {
+            flex: 1;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .radio-item input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .spinner {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            border: 0.25rem solid hsl(var(--secondary));
+            border-top-color: hsl(var(--primary));
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .stats-card {
+            background-color: hsl(var(--secondary) / 0.3);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+        }
+    </style>
+</head>
+<body class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))]" x-data="app()">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold">Gradient Descent Visualization Tool</h1>
+            <p class="text-[hsl(var(--muted-foreground))]">Explore optimization algorithms with interactive visualizations</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- Controls Panel -->
+            <div class="lg:col-span-1">
+                <div class="card shadow-md">
+                    <h2 class="text-xl font-semibold mb-4">Function Selection</h2>
+                    <div class="space-y-2 mb-6 max-h-48 overflow-y-auto pr-2">
+                        {% for function_name in preset_functions %}
+                        <div class="radio-item">
+                            <input type="radio" id="{{ function_name }}" name="function" 
+                                x-model="selectedFunction" value="{{ function_name }}"
+                                @change="updateFunctionInfo()">
+                            <label for="{{ function_name }}">{{ function_name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-medium mb-2">Description</h3>
+                        <p class="text-[hsl(var(--muted-foreground))]" x-text="functionDescription"></p>
+                    </div>
+
+                    <h2 class="text-xl font-semibold mb-4">Parameters</h2>
+                    
+                    <!-- Learning Rate -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Learning Rate:</span>
+                            <span x-text="learningRate.toFixed(3)"></span>
+                        </div>
+                        <input type="range" min="0.001" max="0.5" step="0.001" x-model.number="learningRate">
+                    </div>
+                    
+                    <!-- Max Iterations -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Max Iterations:</span>
+                            <span x-text="maxIterations"></span>
+                        </div>
+                        <input type="range" min="10" max="500" step="1" x-model.number="maxIterations">
+                    </div>
+                    
+                    <!-- Resolution -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Resolution:</span>
+                            <span x-text="resolution"></span>
+                        </div>
+                        <input type="range" min="50" max="200" step="1" x-model.number="resolution" 
+                               @change="updatePreview()">
+                    </div>
+                    
+                    <h3 class="text-lg font-medium mb-2 mt-4">Starting Point</h3>
+                    
+                    <!-- Start X -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>X:</span>
+                            <span x-text="startX.toFixed(2)"></span>
+                        </div>
+                        <input type="range" 
+                               :min="functionRange[0]" 
+                               :max="functionRange[1]" 
+                               step="0.01" 
+                               x-model.number="startX"
+                               @change="updatePreview()">
+                    </div>
+                    
+                    <!-- Start Y -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Y:</span>
+                            <span x-text="startY.toFixed(2)"></span>
+                        </div>
+                        <input type="range" 
+                               :min="functionRange[0]" 
+                               :max="functionRange[1]" 
+                               step="0.01" 
+                               x-model.number="startY"
+                               @change="updatePreview()">
+                    </div>
+                    
+                    <h3 class="text-lg font-medium mb-2 mt-4">Animation Controls</h3>
+                    
+                    <!-- Loop Animation -->
+                    <div class="mb-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="loopAnimation" class="mr-2">
+                            <span>Loop Animation</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Animation Speed -->
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Animation Speed:</span>
+                            <span x-text="animationSpeed"></span>
+                        </div>
+                        <input type="range" min="10" max="200" step="1" x-model.number="animationSpeed">
+                    </div>
+                    
+                    <button @click="runSimulation()" class="w-full btn btn-primary py-4 mt-6 text-lg">
+                        PLOT
+                    </button>
+                </div>
+            </div>
+<!-- Visualization Area -->
+<div class="lg:col-span-3">
+    <div class="card visualization-card relative shadow-md">
+        <template x-if="isLoading">
+            <div class="loading-overlay">
+                <div class="spinner"></div>
+            </div>
+        </template>
+        
+        <div class="visualization-container" id="visualization-container">
+            <!-- Preview visualization (before running simulation) -->
+            <div x-show="!hasResults" class="w-full">
+                <img :src="'data:image/png;base64,' + previewImage" alt="Function Preview" class="w-full">
+                <div class="mt-4 text-center">
+                    <p class="text-lg">Click 'PLOT' to run gradient descent simulation</p>
+                </div>
+            </div>
+            
+            <!-- Simulation results visualization -->
+            <div x-show="hasResults" class="w-full">
+                <img :src="'data:image/png;base64,' + currentFrame.image" alt="Gradient Descent Visualization" class="w-full">
+                
+                <div class="animation-controls mt-4">
+                    <button @click="playPause()" class="animation-btn" x-text="isPlaying ? '⏸' : '▶'"></button>
+                    <button @click="stepBackward()" class="animation-btn">⏮</button>
+                    <div class="animation-slider mx-2">
+                        <input 
+                            type="range" 
+                            min="0" 
+                            :max="frames.length - 1" 
+                            step="1" 
+                            x-model.number="currentFrameIndex"
+                            @input="stopPlaying()">
+                    </div>
+                    <button @click="stepForward()" class="animation-btn">⏭</button>
+                    <span class="ml-2 text-sm" x-text="`${currentFrameIndex + 1}/${frames.length}`"></span>
+                </div>
+                
+                <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="stats-card">
+                        <h3 class="font-medium text-sm mb-1">Current Iteration</h3>
+                        <p class="text-lg font-semibold" x-text="currentFrame.iteration"></p>
+                    </div>
+                    <div class="stats-card">
+                        <h3 class="font-medium text-sm mb-1">Function Value</h3>
+                        <p class="text-lg font-semibold" x-text="currentFrame.value ? currentFrame.value.toFixed(6) : 'N/A'"></p>
+                    </div>
+                    <div class="stats-card">
+                        <h3 class="font-medium text-sm mb-1">Coordinates</h3>
+                        <p class="text-lg font-semibold" x-text="currentFrame.coords ? `(${currentFrame.coords.x.toFixed(4)}, ${currentFrame.coords.y.toFixed(4)})` : 'N/A'"></p>
+                    </div>
+                    <div class="stats-card">
+                        <h3 class="font-medium text-sm mb-1">Learning Rate</h3>
+                        <p class="text-lg font-semibold" x-text="learningRate.toFixed(4)"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+
+<script>
+function app() {
+return {
+    // Function selection and information
+    selectedFunction: "{{ default_function }}",
+    functionDescription: "{{ default_description }}",
+    functionRange: {{ default_range }},
+    
+    // Parameters
+    learningRate: 0.1,
+    maxIterations: 100,
+    resolution: 100,
+    startX: {{ default_start[0] }},
+    startY: {{ default_start[1] }},
+    loopAnimation: true,
+    animationSpeed: 50,
+    
+    // State
+    isLoading: false,
+    hasResults: false,
+    previewImage: "{{ default_preview }}",
+    frames: [],
+    currentFrameIndex: 0,
+    isPlaying: false,
+    playInterval: null,
+    
+    init() {
+        // Set up keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!this.hasResults) return;
+            
+            switch (e.key) {
+                case ' ':  // Spacebar
+                    this.playPause();
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    this.stepForward();
+                    e.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                    this.stepBackward();
+                    e.preventDefault();
+                    break;
+                case 'Home':
+                    this.currentFrameIndex = 0;
+                    e.preventDefault();
+                    break;
+                case 'End':
+                    this.currentFrameIndex = this.frames.length - 1;
+                    e.preventDefault();
+                    break;
+            }
+        });
+    },
+    
+    get currentFrame() {
+        if (this.frames.length === 0) return {};
+        return this.frames[this.currentFrameIndex];
+    },
+    
+    updateFunctionInfo() {
+        this.isLoading = true;
+        
+        fetch('/function_preview', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                function: this.selectedFunction
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.functionDescription = data.description;
+            this.functionRange = data.range;
+            this.startX = data.start[0];
+            this.startY = data.start[1];
+            this.previewImage = data.preview_image;
+            
+            // Reset simulation state
+            this.hasResults = false;
+            this.stopPlaying();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
+    },
+    
+    updatePreview() {
+        // Debounce the preview update to avoid too many requests
+        if (this.previewUpdateTimeout) {
+            clearTimeout(this.previewUpdateTimeout);
+        }
+        
+        this.previewUpdateTimeout = setTimeout(() => {
+            fetch('/update_preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    function: this.selectedFunction,
+                    resolution: this.resolution,
+                    start_x: this.startX,
+                    start_y: this.startY
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.previewImage = data.preview_image;
+            })
+            .catch(error => {
+                console.error('Error updating preview:', error);
+            });
+        }, 300);
+    },
+    
+    runSimulation() {
+        this.stopPlaying();
+        this.isLoading = true;
+        
+        fetch('/run_simulation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                function: this.selectedFunction,
+                learning_rate: this.learningRate,
+                max_iterations: this.maxIterations,
+                resolution: this.resolution,
+                start_x: this.startX,
+                start_y: this.startY,
+                range: this.functionRange
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.frames = data.frames;
+            this.currentFrameIndex = 0;
+            this.hasResults = true;
+            this.playAnimation();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while running the simulation.');
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
+    },
+    
+    playPause() {
+        if (this.isPlaying) {
+            this.stopPlaying();
+        } else {
+            this.playAnimation();
+        }
+    },
+    
+    playAnimation() {
+        if (!this.hasResults) return;
+        
+        this.isPlaying = true;
+        const frameDelay = 200 - this.animationSpeed;
+        
+        this.playInterval = setInterval(() => {
+            this.stepForward();
+            
+            // Handle looping
+            if (this.currentFrameIndex >= this.frames.length - 1) {
+                if (this.loopAnimation) {
+                    this.currentFrameIndex = 0;
+                } else {
+                    this.stopPlaying();
+                }
+            }
+        }, frameDelay);
+    },
+    
+    stopPlaying() {
+        this.isPlaying = false;
+        if (this.playInterval) {
+            clearInterval(this.playInterval);
+            this.playInterval = null;
+        }
+    },
+    
+    stepForward() {
+        if (this.currentFrameIndex < this.frames.length - 1) {
+            this.currentFrameIndex++;
+        }
+    },
+    
+    stepBackward() {
+        if (this.currentFrameIndex > 0) {
+            this.currentFrameIndex--;
+        }
+    }
+};
+}
+</script>
+</body>
+</html>
