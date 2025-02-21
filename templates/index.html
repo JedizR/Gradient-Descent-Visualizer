@@ -186,34 +186,138 @@
             border-radius: var(--radius);
             padding: 0.75rem;
         }
+
+        /* Additions for the rotation controls */
+        .rotation-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .rotation-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 0.5rem;
+            background-color: hsl(var(--secondary));
+            color: hsl(var(--secondary-foreground));
+            cursor: pointer;
+            font-size: 1.25rem;
+        }
+
+        .rotation-btn:hover {
+            background-color: hsl(var(--secondary) / 0.8);
+        }
+
+        .plot-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius);
+            padding: 0.75rem 2rem;
+            background-color: hsl(var(--primary));
+            color: hsl(var(--primary-foreground));
+            font-weight: 600;
+            font-size: 1.125rem;
+            cursor: pointer;
+        }
+
+        .plot-btn:hover {
+            background-color: hsl(var(--primary) / 0.9);
+        }
+
+        .control-panel {
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--border));
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: var(--radius);
+            border: 1px solid hsl(var(--border));
+            background-color: hsl(var(--background));
+            margin-bottom: 1rem;
+        }
+
+        .rbf-controls {
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            background-color: hsl(var(--secondary) / 0.3);
+            margin-top: 0.5rem;
+        }
+
+        .optimizer-controls {
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            background-color: hsl(var(--secondary) / 0.3);
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body class="bg-[hsl(var(--background))] text-[hsl(var(--foreground))]" x-data="app()">
     <div class="container mx-auto px-4 py-8">
         <header class="mb-8">
-            <h1 class="text-3xl font-bold">Gradient Descent Visualization Tool</h1>
+            <h1 class="text-3xl font-bold">Gradient Descent Playground</h1>
             <p class="text-[hsl(var(--muted-foreground))]">Explore optimization algorithms with interactive visualizations</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <!-- Controls Panel -->
             <div class="lg:col-span-1">
-                <div class="card shadow-md">
+                <div class="card shadow-md max-h-[615px] overflow-y-auto sticky top-4">
                     <h2 class="text-xl font-semibold mb-4">Function Selection</h2>
-                    <div class="space-y-2 mb-6 max-h-48 overflow-y-auto pr-2">
+                    
+                    <!-- Replace radio buttons with dropdown -->
+                    <select x-model="selectedFunction" @change="updateFunctionInfo()">
                         {% for function_name in preset_functions %}
-                        <div class="radio-item">
-                            <input type="radio" id="{{ function_name }}" name="function" 
-                                x-model="selectedFunction" value="{{ function_name }}"
-                                @change="updateFunctionInfo()">
-                            <label for="{{ function_name }}">{{ function_name }}</label>
-                        </div>
+                        <option value="{{ function_name }}">{{ function_name }}</option>
                         {% endfor %}
-                    </div>
+                    </select>
 
                     <div class="mb-6">
                         <h3 class="text-lg font-medium mb-2">Description</h3>
                         <p class="text-[hsl(var(--muted-foreground))]" x-text="functionDescription"></p>
+                    </div>
+
+                    <!-- RBF-specific controls -->
+                    <div x-show="selectedFunction === 'RBF Interpolation'" class="rbf-controls mb-4">
+                        <h3 class="text-lg font-medium mb-2">RBF Parameters</h3>
+                        
+                        <!-- Complexity slider -->
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Complexity:</span>
+                                <span x-text="rbfComplexity"></span>
+                            </div>
+                            <input type="range" min="3" max="15" step="1" x-model.number="rbfComplexity">
+                        </div>
+                        
+                        <!-- Amplitude slider -->
+                        <div class="slider-container">
+                            <div class="slider-label">
+                                <span>Amplitude:</span>
+                                <span x-text="rbfAmplitude.toFixed(1)"></span>
+                            </div>
+                            <input type="range" min="0.5" max="5" step="0.1" x-model.number="rbfAmplitude">
+                        </div>
+                        
+                        <!-- Seed input -->
+                        <div class="mb-3">
+                            <label class="block mb-1">Seed (optional):</label>
+                            <input type="number" x-model.number="rbfSeed" class="w-full px-3 py-2 border rounded" placeholder="Random seed">
+                        </div>
+                        
+                        <!-- Generate button -->
+                        <button @click="generateRBF()" class="w-full btn btn-secondary">
+                            Generate New Surface
+                        </button>
                     </div>
 
                     <h2 class="text-xl font-semibold mb-4">Parameters</h2>
@@ -234,6 +338,16 @@
                             <span x-text="maxIterations"></span>
                         </div>
                         <input type="range" min="10" max="500" step="1" x-model.number="maxIterations">
+                    </div>
+
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Convergence Threshold:</span>
+                            <span x-text="convergenceThreshold.toExponential(2)"></span>
+                        </div>
+                        <input type="range" min="-10" max="-2" step="0.1" 
+                               x-model.number="convergenceThresholdExp" 
+                               @input="convergenceThreshold = Math.pow(10, convergenceThresholdExp)">
                     </div>
                     
                     <!-- Resolution -->
@@ -275,6 +389,40 @@
                                x-model.number="startY"
                                @change="updatePreview()">
                     </div>
+
+                    <!-- Optimizer Controls -->
+                    <div class="optimizer-controls">
+                        <h3 class="text-lg font-medium mb-2">Optimizer Settings</h3>
+                        
+                        <!-- Optimizer Selection -->
+                        <div class="mb-3">
+                            <label class="block mb-1">Optimization Algorithm:</label>
+                            <select x-model="optimizer" class="w-full px-3 py-2 border rounded">
+                                {% for key, value in optimizer_options.items() %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Learning Rate Scheduler -->
+                        <div class="mb-3">
+                            <label class="block mb-1">Learning Rate Scheduler:</label>
+                            <select x-model="lrScheduler" class="w-full px-3 py-2 border rounded">
+                                {% for key, value in lr_scheduler_options.items() %}
+                                <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <!-- Momentum Beta (shown only for momentum and adam) -->
+                        <div x-show="optimizer === 'momentum' || optimizer === 'adam'" class="slider-container">
+                            <div class="slider-label">
+                                <span>Momentum (β):</span>
+                                <span x-text="momentumBeta.toFixed(2)"></span>
+                            </div>
+                            <input type="range" min="0.5" max="0.99" step="0.01" x-model.number="momentumBeta">
+                        </div>
+                    </div>
                     
                     <h3 class="text-lg font-medium mb-2 mt-4">Animation Controls</h3>
                     
@@ -294,13 +442,9 @@
                         </div>
                         <input type="range" min="10" max="200" step="1" x-model.number="animationSpeed">
                     </div>
-                    
-                    <button @click="runSimulation()" class="w-full btn btn-primary py-4 mt-6 text-lg">
-                        PLOT
-                    </button>
                 </div>
             </div>
-<!-- Visualization Area -->
+            <!-- Visualization Area -->
 <div class="lg:col-span-3">
     <div class="card visualization-card relative shadow-md">
         <template x-if="isLoading">
@@ -353,11 +497,30 @@
                     </div>
                     <div class="stats-card">
                         <h3 class="font-medium text-sm mb-1">Learning Rate</h3>
-                        <p class="text-lg font-semibold" x-text="learningRate.toFixed(4)"></p>
+                        <p class="text-lg font-semibold" x-text="currentFrame.learning_rate ? currentFrame.learning_rate.toFixed(4) : learningRate.toFixed(4)"></p>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+    
+    <!-- Rotation Controls and Plot Button (outside the card) -->
+    <div class="flex justify-center items-center mt-4 gap-3">
+        <button @click="rotateView('left')" class="rotation-btn" title="Rotate Left">
+            ←
+        </button>
+        <button @click="rotateView('up')" class="rotation-btn" title="Rotate Up">
+            ↑
+        </button>
+        <button @click="runSimulation()" class="plot-btn px-8">
+            PLOT
+        </button>
+        <button @click="rotateView('down')" class="rotation-btn" title="Rotate Down">
+            ↓
+        </button>
+        <button @click="rotateView('right')" class="rotation-btn" title="Rotate Right">
+            →
+        </button>
     </div>
 </div>
 </div>
@@ -379,6 +542,22 @@ return {
     startY: {{ default_start[1] }},
     loopAnimation: true,
     animationSpeed: 50,
+    convergenceThresholdExp: -6,  // 10^-6 = 0.000001
+    convergenceThreshold: 0.000001,
+    
+    // RBF parameters
+    rbfComplexity: {{ default_rbf_complexity }},
+    rbfAmplitude: {{ default_rbf_amplitude }},
+    rbfSeed: {{ default_rbf_seed }},
+    
+    // Optimizer parameters
+    optimizer: 'vanilla',
+    lrScheduler: 'constant',
+    momentumBeta: 0.9,
+    
+    // View angles for 3D plot
+    elevate: 30,
+    azimuth: 30,
     
     // State
     isLoading: false,
@@ -388,6 +567,7 @@ return {
     currentFrameIndex: 0,
     isPlaying: false,
     playInterval: null,
+    
     
     init() {
         // Set up keyboard shortcuts
@@ -444,12 +624,53 @@ return {
             this.startY = data.start[1];
             this.previewImage = data.preview_image;
             
+            // Update RBF parameters if this is an RBF function
+            if (data.is_rbf) {
+                this.rbfComplexity = data.complexity;
+                this.rbfAmplitude = data.amplitude;
+                this.rbfSeed = data.seed;
+            }
+            
             // Reset simulation state
             this.hasResults = false;
             this.stopPlaying();
         })
         .catch(error => {
             console.error('Error:', error);
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
+    },
+    
+    generateRBF() {
+        this.isLoading = true;
+        
+        fetch('/generate_rbf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                complexity: this.rbfComplexity,
+                amplitude: this.rbfAmplitude,
+                seed: this.rbfSeed,
+                resolution: this.resolution,
+                start_x: this.startX,
+                start_y: this.startY
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.previewImage = data.preview_image;
+            this.functionDescription = data.description;
+            
+            // Reset simulation state
+            this.hasResults = false;
+            this.stopPlaying();
+        })
+        .catch(error => {
+            console.error('Error generating RBF:', error);
         })
         .finally(() => {
             this.isLoading = false;
@@ -472,7 +693,12 @@ return {
                     function: this.selectedFunction,
                     resolution: this.resolution,
                     start_x: this.startX,
-                    start_y: this.startY
+                    start_y: this.startY,
+                    complexity: this.rbfComplexity,
+                    amplitude: this.rbfAmplitude,
+                    seed: this.rbfSeed,
+                    elevate: this.elevate,
+                    azimuth: this.azimuth
                 })
             })
             .then(response => response.json())
@@ -483,6 +709,41 @@ return {
                 console.error('Error updating preview:', error);
             });
         }, 300);
+    },
+    
+    rotateView(direction) {
+        this.isLoading = true;
+        
+        fetch('/rotate_view', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                function: this.selectedFunction,
+                resolution: this.resolution,
+                start_x: this.startX,
+                start_y: this.startY,
+                complexity: this.rbfComplexity,
+                amplitude: this.rbfAmplitude,
+                seed: this.rbfSeed,
+                elevate: this.elevate,
+                azimuth: this.azimuth,
+                direction: direction
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            this.previewImage = data.preview_image;
+            this.elevate = data.elevate;
+            this.azimuth = data.azimuth;
+        })
+        .catch(error => {
+            console.error('Error rotating view:', error);
+        })
+        .finally(() => {
+            this.isLoading = false;
+        });
     },
     
     runSimulation() {
@@ -499,9 +760,17 @@ return {
                 learning_rate: this.learningRate,
                 max_iterations: this.maxIterations,
                 resolution: this.resolution,
+                convergence_threshold: this.convergenceThreshold,
                 start_x: this.startX,
                 start_y: this.startY,
-                range: this.functionRange
+                range: this.functionRange,
+                complexity: this.rbfComplexity,
+                amplitude: this.rbfAmplitude,
+                seed: this.rbfSeed,
+                optimizer: this.optimizer,
+                lr_scheduler: this.lrScheduler !== 'constant' ? this.lrScheduler : null,
+                elevate: this.elevate,
+                azimuth: this.azimuth
             })
         })
         .then(response => response.json())
